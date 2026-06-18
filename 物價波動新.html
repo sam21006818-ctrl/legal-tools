@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚖️ 工程物價爭議：司法裁量模擬器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 25px; }
+        .description { text-align: center; color: #7f8c8d; margin-bottom: 25px; font-size: 15px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #34495e; }
+        input, select { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; font-size: 18px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; font-weight: bold; margin-top: 10px; }
+        button:hover { background-color: #2980b9; }
+        
+        .summary { text-align: center; margin-top: 25px; font-size: 18px; font-weight: bold; padding: 15px; background: #fff3cd; border-left: 5px solid #ffc107; border-radius: 4px; display: none;}
+        
+        .result-box { display: flex; justify-content: space-between; margin-top: 25px; gap: 20px; display: none; }
+        .card { flex: 1; padding: 25px; border-radius: 8px; border: 1px solid #e0e0e0; background: #fafafa; }
+        .card h3 { margin-top: 0; color: #2c3e50; font-size: 19px; text-align: center; border-bottom: 1px solid #ddd; padding-bottom: 10px;}
+        .card-desc { font-size: 13px; color: #7f8c8d; min-height: 40px; margin-bottom: 15px; text-align: justify; }
+        .val-title { font-size: 14px; color: #555; margin-top: 15px; font-weight: bold; }
+        .highlight-win { color: #27ae60; font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+        .highlight-lose { color: #c0392b; font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚖️ 工程物價爭議：司法裁量模擬器</h1>
+    <div class="description">
+        輸入您的工程數據，立即預覽在最高法院兩套不同標準下的「獲賠金額」與「自負虧損」。
+    </div>
+
+    <div class="input-group">
+        <label for="budget">原物料預算金額 (新臺幣)</label>
+        <input type="number" id="budget" value="10000000" min="0">
+    </div>
+
+    <div class="input-group">
+        <label for="actual">實際進貨成本 (新臺幣)</label>
+        <input type="number" id="actual" value="15000000" min="0">
+    </div>
+
+    <div class="input-group">
+        <label for="threshold">物價忍受門檻 (政府物調標準)</label>
+        <select id="threshold">
+            <option value="2.5">總指數門檻：逾 2.5% 部分補貼</option>
+            <option value="5">中分類指數門檻：逾 5% 部分補貼</option>
+            <option value="10" selected>特定個別項目門檻：逾 10% 部分補貼 (如鋼筋/鋼板)</option>
+        </select>
+    </div>
+
+    <button onclick="calculate()">執行模擬計算</button>
+
+    <div class="summary" id="summary">
+        實際超支總成本：<span id="total-extra" style="color:#e74c3c;">0</span> 元
+    </div>
+
+    <div class="result-box" id="result-box">
+        <div class="card" style="border-top: 5px solid #2980b9;">
+            <h3>標準 A：客觀門檻法<br><small style="font-size: 14px; color: #7f8c8d;">(皆豪案 110台上1072)</small></h3>
+            <div class="card-desc">邏輯：廠商僅須吸收「門檻內」之正常風險。跨越門檻的超額損失，機關須全額補貼，並加計 5% 稅管費。</div>
+            
+            <div class="val-title">機關判賠金額：</div>
+            <span class="highlight-win" id="compA">0 元</span>
+            
+            <div class="val-title">廠商自行吸收 (認賠) 金額：</div>
+            <span class="highlight-lose" id="lossA">0 元</span>
+        </div>
+
+        <div class="card" style="border-top: 5px solid #f39c12;">
+            <h3>標準 B：衡平分攤法<br><small style="font-size: 14px; color: #7f8c8d;">(遠揚案 103台上529)</small></h3>
+            <div class="card-desc">邏輯：不看行政物調門檻。法官認定天災雙方均無過失，總超支費用直接「各打五十大板」一人負擔一半。</div>
+            
+            <div class="val-title">機關判賠金額：</div>
+            <span class="highlight-win" style="color: #f39c12;" id="compB">0 元</span>
+            
+            <div class="val-title">廠商自行吸收 (認賠血虧) 金額：</div>
+            <span class="highlight-lose" id="lossB">0 元</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatMoney(num) {
+        return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function calculate() {
+        const budget = parseFloat(document.getElementById('budget').value) || 0;
+        const actual = parseFloat(document.getElementById('actual').value) || 0;
+        // 取得下拉選單的門檻值 (2.5, 5, 或 10)
+        const thresholdPercent = parseFloat(document.getElementById('threshold').value) / 100;
+
+        const extraCost = actual - budget;
+        
+        if (extraCost <= 0) {
+            alert("實際成本並未超支，不構成情事變更！請重新輸入。");
+            return;
+        }
+
+        document.getElementById('summary').style.display = 'block';
+        document.getElementById('result-box').style.display = 'flex';
+        document.getElementById('total-extra').innerText = formatMoney(extraCost);
+
+        // --- 標準 A 計算 (皆豪案：門檻扣除法) ---
+        // 廠商須自負的最高風險金額 = 原預算 * (1 + 門檻%)
+        const contractorRiskLimit = budget * (1 + thresholdPercent);
+        
+        let compA = 0;
+        if (actual > contractorRiskLimit) {
+            // 超出門檻的損失，機關全賠，並加計 5% 營業稅與管理費
+            compA = (actual - contractorRiskLimit) * 1.05; 
+        }
+        
+        let lossA = extraCost - compA;
+        if (lossA < 0) lossA = 0; // 避免出現負數虧損
+
+        // --- 標準 B 計算 (遠揚案：對半均攤法) ---
+        // 不扣除任何門檻，直接將總超支額除以 2
+        const compB = extraCost * 0.5; 
+        const lossB = extraCost * 0.5;
+
+        // --- 更新 UI 顯示 ---
+        document.getElementById('compA').innerText = formatMoney(compA) + " 元";
+        document.getElementById('lossA').innerText = formatMoney(lossA) + " 元";
+        document.getElementById('compB').innerText = formatMoney(compB) + " 元";
+        document.getElementById('lossB').innerText = formatMoney(lossB) + " 元";
+    }
+</script>
+
+</body>
+</html>

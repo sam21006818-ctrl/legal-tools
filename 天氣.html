@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天候爭議：司法預見性與客觀數據模擬器</title>
+    <style>
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f0f4f8; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        .input-group { margin-bottom: 25px; }
+        label { display: block; font-weight: bold; margin-bottom: 10px; color: #34495e; }
+        input[type="range"] { width: 100%; height: 10px; border-radius: 5px; background: #dcdde1; outline: none; transition: background 0.3s; }
+        .value-display { font-size: 24px; font-weight: bold; color: #3498db; text-align: center; display: block; margin-top: 10px; }
+        .result-panel { margin-top: 30px; padding: 20px; border-radius: 8px; text-align: center; transition: all 0.5s; }
+        .verdict-title { font-size: 22px; font-weight: bold; margin-bottom: 10px; }
+        .verdict-desc { font-size: 16px; line-height: 1.6; }
+        .ref-case { font-size: 14px; font-style: italic; margin-top: 15px; color: #7f8c8d; }
+        .stats { display: flex; justify-content: space-around; margin-bottom: 30px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 14px; color: #7f8c8d; }
+        .stat-val { font-size: 20px; font-weight: bold; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⛈️ 天候爭議：司法預見性模擬器</h1>
+    <p style="text-align:center; color:#636e72;">依據「第四案」與「第九案」最高法院見解，分析天候異常程度對判決結果的影響。</p>
+
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-label">歷史平均水位/雨量</div>
+            <div class="stat-val" id="hist-val">150</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">本次事件實際值</div>
+            <div class="stat-val" id="act-val">180</div>
+        </div>
+        <div class="stat-item" style="color: #e67e22;">
+            <div class="stat-label">偏差幅度 (Z-Score)</div>
+            <div class="stat-val" id="dev-val">20%</div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>1. 調整歷史同期平均數據 (例如：歷年旬平均水位)</label>
+        <input type="range" id="histRange" min="50" max="500" value="150" oninput="update()">
+    </div>
+
+    <div class="input-group">
+        <label>2. 調整本次災害發生時的實際數據</label>
+        <input type="range" id="actRange" min="50" max="1000" value="180" oninput="update()">
+    </div>
+
+    <div id="resultPanel" class="result-panel">
+        <div class="verdict-title" id="verdictTitle">法院判定中...</div>
+        <div class="verdict-desc" id="verdictDesc"></div>
+        <div class="ref-case" id="refCase"></div>
+    </div>
+</div>
+
+<script>
+    function update() {
+        const hist = parseFloat(document.getElementById('histRange').value);
+        const act = parseFloat(document.getElementById('actRange').value);
+        const dev = ((act - hist) / hist) * 100;
+
+        document.getElementById('hist-val').innerText = hist;
+        document.getElementById('act-val').innerText = act;
+        document.getElementById('dev-val').innerText = dev.toFixed(0) + "%";
+
+        const panel = document.getElementById('resultPanel');
+        const title = document.getElementById('verdictTitle');
+        const desc = document.getElementById('verdictDesc');
+        const ref = document.getElementById('refCase');
+
+        if (dev < 30) {
+            panel.style.backgroundColor = "#dff9fb";
+            panel.style.borderLeft = "8px solid #22a6b3";
+            title.innerText = "⚖️ 判決預測：原告敗訴";
+            title.style.color = "#c0392b";
+            desc.innerText = "法院認定：此程度之降雨或水位波動屬台灣氣候之「常態性風險」。專業營造廠商於簽約時理應預見並將其納入成本，不得主張情事變更。";
+            ref.innerText = "參考判決：最高法院 114 台上 96 (第九案)";
+        } else if (dev >= 30 && dev < 80) {
+            panel.style.backgroundColor = "#fff3cd";
+            panel.style.borderLeft = "8px solid #ffc107";
+            title.innerText = "⚖️ 判決預測：爭議邊緣（視鑑定而定）";
+            title.style.color = "#856404";
+            desc.innerText = "法院認定：偏差幅度已具爭議性。廠商需委託公會鑑定，證明該數據已超越「機關原始設計之防護基準」，方有獲賠可能。";
+            ref.innerText = "重點攻防：攻擊機關設計規範之不足。";
+        } else {
+            panel.style.backgroundColor = "#f8d7da";
+            panel.style.borderLeft = "8px solid #eb4d4b";
+            title.innerText = "⚖️ 判決預測：原告勝訴";
+            title.style.color = "#27ae60";
+            desc.innerText = "法院認定：實際數據遠超歷史基準，屬「不可預見且無合理防範之自然力作用」。強令廠商負擔此天災風險顯失公平，准予補償。";
+            ref.innerText = "參考判決：最高法院 113 台上 14 (第四案)";
+        }
+    }
+    update();
+</script>
+
+</body>
+</html>

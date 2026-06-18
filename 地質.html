@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地質變異爭議：司法裁量與風險分配模擬器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #eef2f5; color: #333; padding: 20px; }
+        .container { max-width: 850px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; border-bottom: 2px solid #8e44ad; padding-bottom: 10px; }
+        .description { text-align: center; color: #7f8c8d; margin-bottom: 25px; line-height: 1.6; }
+        .input-section { background: #fdfdfd; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #34495e; }
+        input[type="number"] { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; font-size: 18px; background-color: #8e44ad; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; font-weight: bold; }
+        button:hover { background-color: #732d91; }
+        
+        .ratio-alert { margin-top: 25px; padding: 20px; border-radius: 8px; text-align: center; font-size: 18px; font-weight: bold; display: none; }
+        .alert-danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        
+        .result-box { display: flex; justify-content: space-between; margin-top: 25px; gap: 20px; display: none; }
+        .card { flex: 1; padding: 25px; border-radius: 8px; border: 1px solid #e0e0e0; background: #fafafa; position: relative; overflow: hidden; }
+        .card h3 { margin-top: 0; color: #2c3e50; font-size: 19px; text-align: center; margin-bottom: 10px; }
+        .card-desc { font-size: 13px; color: #7f8c8d; text-align: center; margin-bottom: 15px; min-height: 40px; }
+        
+        .val-title { font-size: 15px; color: #555; margin-top: 15px; font-weight: bold; }
+        .highlight-agency { color: #2980b9; font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+        .highlight-contractor { color: #e74c3c; font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+        
+        .border-strict { border-top: 6px solid #e74c3c; }
+        .border-fair { border-top: 6px solid #27ae60; }
+        
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⛏️ 地質變異爭議：司法裁量與風險分配模擬器</h1>
+    <div class="description">
+        預設數據為「第十九案（永春營造案）」之真實判決數值。<br>
+        藉由本工具可具體向法官或決策者展示：機關企圖以微薄的探勘費，買斷廠商龐大未知地層風險的「對價失衡」現象。
+    </div>
+
+    <div class="input-section">
+        <div class="input-group">
+            <label for="totalContract">工程總造價 (新臺幣)</label>
+            <input type="number" id="totalContract" value="150000000" min="0">
+        </div>
+
+        <div class="input-group">
+            <label for="investigationFee">機關編列之「地質及調查試驗費」 (新臺幣)</label>
+            <input type="number" id="investigationFee" value="206534" min="0" step="1000">
+        </div>
+
+        <div class="input-group">
+            <label for="extraCost">遭遇異常地質之「額外變更工法/搶救成本」 (新臺幣)</label>
+            <input type="number" id="extraCost" value="5806741" min="0" step="10000">
+        </div>
+    </div>
+
+    <button onclick="calculate()">執行比例分析與判決模擬</button>
+
+    <div class="ratio-alert" id="ratio-alert">
+        ⚠️ 荒謬性檢驗（對價比例）：<br>
+        機關給付的探勘費，僅占實際地質變異風險成本的 <span id="ratio-value" style="font-size: 26px; text-decoration: underline;">0%</span> ！
+        <div id="ratio-text" style="font-size: 15px; font-weight: normal; margin-top: 10px;"></div>
+    </div>
+
+    <div class="result-box" id="result-box">
+        <div class="card border-strict">
+            <h3>標準 A：地方法院 / 機關視角<br>(契約嚴守原則)</h3>
+            <div class="card-desc">邏輯：定型化條款絕對拘束。機關已給付探勘費，廠商挖到岩盤屬自身評估錯誤，風險應概括承受。</div>
+            <hr>
+            <div class="val-title">機關補償金額：</div>
+            <span class="highlight-agency" id="agencyA">0 元</span>
+            
+            <div class="val-title">廠商自行吸收（認賠）金額：</div>
+            <span class="highlight-contractor" id="contractorA">0 元</span>
+        </div>
+
+        <div class="card border-fair">
+            <h3>標準 B：最高法院視角<br>(實質公平 / 情事變更)</h3>
+            <div class="card-desc">邏輯：打破霸王條款。微薄費用僅為「施工階段補充鑽探」，不足以免除機關招標資訊錯誤之責任，應全額補償。</div>
+            <hr>
+            <div class="val-title">機關補償金額：</div>
+            <span class="highlight-agency" style="color: #27ae60;" id="agencyB">0 元</span>
+            
+            <div class="val-title">廠商自行吸收（認賠）金額：</div>
+            <span class="highlight-contractor" style="color: #7f8c8d;" id="contractorB">0 元</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatMoney(num) {
+        return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function calculate() {
+        const investigationFee = parseFloat(document.getElementById('investigationFee').value) || 0;
+        const extraCost = parseFloat(document.getElementById('extraCost').value) || 0;
+
+        if (extraCost <= 0) {
+            alert("請輸入大於0的額外搶救成本！");
+            return;
+        }
+
+        // 顯示結果區塊
+        document.getElementById('ratio-alert').style.display = 'block';
+        document.getElementById('result-box').style.display = 'flex';
+
+        // 1. 計算荒謬性比例 (探勘費 / 實際損失)
+        const ratio = (investigationFee / extraCost) * 100;
+        document.getElementById('ratio-value').innerText = ratio.toFixed(2) + "%";
+
+        const alertBox = document.getElementById('ratio-alert');
+        const ratioText = document.getElementById('ratio-text');
+        
+        if (ratio < 10) {
+            alertBox.className = "ratio-alert alert-danger";
+            ratioText.innerText = "法庭攻防建議：極度失衡！強烈建議援引最高法院106台上2969號判決，主張該微薄費用絕非『風險買斷金』，機關濫用資訊優勢顯失公平。";
+        } else if (ratio < 50) {
+            alertBox.className = "ratio-alert alert-warning";
+            ratioText.innerText = "法庭攻防建議：對價不相當。請向法官舉證該探勘費的額度，在工程實務上僅能作表層鑽探，客觀上絕對無法預見深層變異。";
+        } else {
+            alertBox.className = "ratio-alert";
+            alertBox.style.backgroundColor = "#e2e3e5";
+            alertBox.style.color = "#383d41";
+            alertBox.style.border = "1px solid #d6d8db";
+            ratioText.innerText = "法庭攻防建議：探勘費用編列較為充足，若要主張情事變更，難度極高，需轉向證明機關『刻意隱瞞』地質資訊。";
+        }
+
+        // 2. 計算地方法院 (契約嚴守) 視角
+        // 機關不賠，廠商全吞
+        document.getElementById('agencyA').innerText = formatMoney(0) + " 元";
+        document.getElementById('contractorA').innerText = formatMoney(extraCost) + " 元";
+
+        // 3. 計算最高法院 (實質公平) 視角
+        // 認定顯失公平，機關全額補償
+        document.getElementById('agencyB').innerText = formatMoney(extraCost) + " 元";
+        document.getElementById('contractorB').innerText = formatMoney(0) + " 元";
+    }
+</script>
+
+</body>
+</html>

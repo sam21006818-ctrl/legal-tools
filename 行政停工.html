@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚧 行政管制停工爭議：裁量權 vs 補償義務模擬器</title>
+    <style>
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background-color: #f4f6f7; color: #333; padding: 20px; line-height: 1.6; }
+        .container { max-width: 850px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; border-bottom: 3px solid #e67e22; padding-bottom: 15px; margin-bottom: 25px; }
+        .description { text-align: center; color: #7f8c8d; margin-bottom: 30px; font-size: 15px; }
+        
+        .input-section { background: #fdfdfd; padding: 25px; border-radius: 8px; border: 1px solid #e1e8ed; margin-bottom: 25px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group:last-child { margin-bottom: 0; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #34495e; font-size: 15px; }
+        .help-text { display: block; font-size: 13px; color: #95a5a6; margin-bottom: 8px; }
+        input[type="number"] { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; transition: border-color 0.3s; }
+        input[type="number"]:focus { border-color: #e67e22; outline: none; }
+        
+        button { width: 100%; padding: 16px; font-size: 18px; background-color: #e67e22; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background 0.3s; font-weight: bold; letter-spacing: 1px; }
+        button:hover { background-color: #d35400; }
+        
+        #warning-box { display: none; margin-top: 20px; padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 6px; text-align: center; font-weight: bold; }
+
+        .summary-box { margin-top: 30px; padding: 20px; background: #fff3e0; border-left: 5px solid #ff9800; border-radius: 6px; text-align: center; font-size: 18px; font-weight: bold; display: none; }
+        .total-cost { color: #d35400; font-size: 26px; display: block; margin-top: 5px; text-decoration: underline; }
+
+        .result-box { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 25px; gap: 20px; display: none; }
+        .card { flex: 1; min-width: 300px; padding: 25px; border-radius: 10px; border: 1px solid #e0e0e0; background: #fafafa; position: relative; }
+        .card h3 { margin-top: 0; font-size: 18px; text-align: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        
+        .card-desc { font-size: 14px; color: #555; text-align: justify; margin-bottom: 20px; min-height: 80px; background: #fff; padding: 15px; border-radius: 6px; border: 1px dashed #ccc; }
+        
+        .val-title { font-size: 14px; color: #7f8c8d; margin-top: 15px; font-weight: bold; }
+        .highlight-agency { font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+        .highlight-contractor { font-size: 24px; font-weight: bold; display: block; margin-top: 5px; }
+        
+        .card-strict { border-top: 6px solid #e74c3c; }
+        .card-strict h3 { color: #c0392b; }
+        .card-strict .highlight-agency { color: #7f8c8d; } /* Agency pays 0 */
+        .card-strict .highlight-contractor { color: #e74c3c; } /* Contractor absorbs all */
+
+        .card-fair { border-top: 6px solid #27ae60; }
+        .card-fair h3 { color: #27ae60; }
+        .card-fair .highlight-agency { color: #27ae60; } /* Agency pays all */
+        .card-fair .highlight-contractor { color: #7f8c8d; } /* Contractor absorbs 0 */
+
+        @media (max-width: 600px) {
+            .result-box { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚧 行政管制停工爭議：裁量權 vs 補償義務模擬器</h1>
+    <div class="description">
+        展示法院對於合約中「得補償廠商」之解釋差異，以及「敦親睦鄰（周邊協調）」義務對工程管理費求償之巨大影響。
+    </div>
+
+    <div class="input-section">
+        <div class="input-group">
+            <label for="suspensionDays">非歸責於廠商之停工總天數 (日曆天)</label>
+            <span class="help-text">例如：春節禁挖、選舉禁挖、配合管線遷移、變更設計等</span>
+            <input type="number" id="suspensionDays" value="150" min="1">
+        </div>
+
+        <div class="input-group">
+            <label for="dailyCost">每日實際待命支出成本 (新臺幣/日)</label>
+            <span class="help-text">包含：為履行「敦親睦鄰、環境維護」義務而留守之人員薪資、保全費、工務所租金及水電費。</span>
+            <input type="number" id="dailyCost" value="25000" min="0" step="1000">
+        </div>
+    </div>
+
+    <button onclick="calculate()">執行法理試算與判決模擬</button>
+
+    <div id="warning-box">請輸入有效的數值！</div>
+
+    <div class="summary-box" id="summary-box">
+        停工期間履行「敦親睦鄰」義務之總待命成本：
+        <span class="total-cost" id="totalCost">0 元</span>
+    </div>
+
+    <div class="result-box" id="result-box">
+        <!-- 標準A：下級審 -->
+        <div class="card card-strict">
+            <h3>標準 A：文義解釋與裁量權<br><small>(下級審常見見解)</small></h3>
+            <div class="card-desc">
+                <strong>法官心證：</strong><br>
+                1. 節慶禁挖屬常態風險，專業廠商應自行預見並吸收。<br>
+                2. 契約明定機關「得」補償，代表機關擁有不予給付之自由裁量權。廠商請求無理由。
+            </div>
+            <div class="val-title">機關判賠金額 (行使裁量權不給)：</div>
+            <span class="highlight-agency" id="agencyA">0 元</span>
+            
+            <div class="val-title">廠商自行吸收（認賠血虧）金額：</div>
+            <span class="highlight-contractor" id="contractorA">0 元</span>
+        </div>
+
+        <!-- 標準B：最高法院 -->
+        <div class="card card-fair">
+            <h3>標準 B：補償義務與實質核算<br><small>(最高法院 108台上1637 等統一見解)</small></h3>
+            <div class="card-desc">
+                <strong>法官心證：</strong><br>
+                1. 節慶禁挖確切日數非簽約時所能精準預見，強令吸收顯失公平。<br>
+                2. 廠商停工期間仍負有「周邊協調與環境維護」契約義務。<br>
+                3. 「得」字於非可歸責廠商時，即轉化為機關之「補償義務」，不得濫用裁量權拒絕。
+            </div>
+            <div class="val-title">機關判賠金額 (依約核實補償)：</div>
+            <span class="highlight-agency" id="agencyB">0 元</span>
+            
+            <div class="val-title">廠商自行吸收金額：</div>
+            <span class="highlight-contractor" id="contractorB">0 元</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatMoney(num) {
+        return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function calculate() {
+        const suspensionDays = parseFloat(document.getElementById('suspensionDays').value) || 0;
+        const dailyCost = parseFloat(document.getElementById('dailyCost').value) || 0;
+        const warningBox = document.getElementById('warning-box');
+
+        if (suspensionDays <= 0 || dailyCost < 0) {
+            warningBox.style.display = 'block';
+            document.getElementById('summary-box').style.display = 'none';
+            document.getElementById('result-box').style.display = 'none';
+            return;
+        }
+        
+        warningBox.style.display = 'none';
+
+        // 計算總待命成本
+        const totalStandbyCost = suspensionDays * dailyCost;
+
+        // 顯示結果區塊
+        document.getElementById('summary-box').style.display = 'block';
+        document.getElementById('result-box').style.display = 'flex';
+        
+        document.getElementById('totalCost').innerText = formatMoney(totalStandbyCost) + " 元";
+
+        // 標準 A：下級審 (機關不賠，廠商全吞)
+        document.getElementById('agencyA').innerText = formatMoney(0) + " 元";
+        document.getElementById('contractorA').innerText = formatMoney(totalStandbyCost) + " 元";
+
+        // 標準 B：最高法院 (機關全賠，廠商不虧)
+        document.getElementById('agencyB').innerText = formatMoney(totalStandbyCost) + " 元";
+        document.getElementById('contractorB').innerText = formatMoney(0) + " 元";
+    }
+</script>
+
+</body>
+</html>
